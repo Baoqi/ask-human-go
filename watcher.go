@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"path/filepath"
 	"sync"
@@ -41,7 +42,7 @@ func NewFileWatcher(filePath string) (*FileWatcher, error) {
 	if err := watcher.Add(dir); err != nil {
 		watcher.Close()
 		cancel()
-		return nil, err
+		return nil, fmt.Errorf("%q: %w", filePath, err)
 	}
 
 	go fw.watchLoop()

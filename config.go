@@ -47,17 +47,21 @@ func GetDefaultAskFile() string {
 		return "ask_human.md"
 	}
 
+	var result string
 	if runtime.GOOS == "windows" {
 		// Use user's Documents folder on Windows
 		documentsDir := filepath.Join(homeDir, "Documents")
 		if _, err := os.Stat(documentsDir); err == nil {
-			return filepath.Join(documentsDir, "ask_human.md")
+			result = filepath.Join(documentsDir, "ask_human.md")
+		} else {
+			result = filepath.Join(homeDir, "ask_human.md")
 		}
-		return filepath.Join(homeDir, "ask_human.md")
+	} else {
+		// Use home directory on Unix-like systems
+		result = filepath.Join(homeDir, "ask_human.md")
 	}
 
-	// Use home directory on Unix-like systems
-	return filepath.Join(homeDir, "ask_human.md")
+	return result
 }
 
 // Custom error types
