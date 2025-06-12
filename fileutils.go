@@ -139,14 +139,34 @@ func SafeReadText(filePath string) (string, error) {
 // FindAnswer searches for an answer to a specific question ID in markdown content
 func FindAnswer(content, questionID string) (string, bool) {
 	// Use regex for robust parsing - look for the question section and extract the answer
-	pattern := fmt.Sprintf(`(?i)### %s\s*\n.*?\*\*Answer:\*\*\s*(.+?)(?=\n\n---|### |$)`,
+	// The regex pattern matches the question header, then non-greedily matches any content,
+	// then the "**Answer:**" prefix, and then captures the answer non-greedily until
+	// it hits either a double newline followed by "---", or "### " (for the next question), or the end of the string.
+	// Since Go's regexp package (RE2) does not support lookaheads directly,
+	// we use a non-capturing group `(?:...)` to match the delimiters at the end of the answer,
+	// ensuring the captured answer does not include them.
+
+	// `(?is)`:
+	//   `i` makes the match case-insensitive.
+	//   `s` makes `.` match newlines (dotall mode).
+	// `### %s\s*\n`: Matches the question ID header. %s is replaced by the quoted questionID.
+	// `.*?`: Non-greedy match for any characters (including newlines due to `s` flag).
+	// `\*\*Answer:\*\*\s*`: Matches "**Answer:**" followed by optional whitespace.
+	// `(.*?)`: This is the first capturing group (`matches[1]`), which captures the answer itself.
+	//          It's non-greedy, so it stops at the first occurrence of the following patterns.
+	// `(?:\n{2,}---|### |$)`: This is a non-capturing group for the delimiters that mark the end of the answer.
+	//          `\n{2,}` matches two or more newlines.
+	//          `---|### `: Matches "---" or "### ".
+	//          `|`: OR operator.
+	//          `$`: Matches the end of the string (if the answer is at the end of the file).
+	pattern := fmt.Sprintf(`(?is)### %s\s*\n.*?\*\*Answer:\*\*\s*(.*?)(?:\n{2,}---|### |$)`,
 		regexp.QuoteMeta(questionID))
 
 	re := regexp.MustCompile(pattern)
 	matches := re.FindStringSubmatch(content)
 
 	if len(matches) > 1 {
-		answer := strings.TrimSpace(matches[1])
+		answer := strings.TrimSpace(matches[1]) // matches[1] contains the captured answer
 		// Check if it's still pending (case-insensitive)
 		if strings.ToLower(answer) == "pending" {
 			return "", false
