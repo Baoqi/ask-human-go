@@ -107,6 +107,9 @@ func runHTTPMode(ctx context.Context, askServer *AskHumanServer, host string, po
 
 	mcpServer := askServer.GetMCPServer()
 
+	// Create SSE server
+	sseServer := server.NewSSEServer(mcpServer)
+
 	// Create HTTP server with SSE endpoint
 	mux := http.NewServeMux()
 
@@ -118,9 +121,10 @@ func runHTTPMode(ctx context.Context, askServer *AskHumanServer, host string, po
 	})
 
 	// SSE endpoint for MCP communication
-	mux.HandleFunc("/sse", func(w http.ResponseWriter, r *http.Request) {
-		server.ServeSSE(mcpServer, w, r)
-	})
+	mux.Handle("/sse", sseServer.SSEHandler())
+
+	// Message endpoint for MCP communication
+	mux.Handle("/message", sseServer.MessageHandler())
 
 	httpServer := &http.Server{
 		Addr:    host + ":" + strconv.Itoa(port),
@@ -136,6 +140,7 @@ func runHTTPMode(ctx context.Context, askServer *AskHumanServer, host string, po
 
 	log.Printf("Server listening on http://%s:%d", host, port)
 	log.Printf("SSE endpoint: http://%s:%d/sse", host, port)
+	log.Printf("Message endpoint: http://%s:%d/message", host, port)
 	log.Printf("Health check: http://%s:%d/health", host, port)
 
 	// Wait for context cancellation
@@ -144,6 +149,11 @@ func runHTTPMode(ctx context.Context, askServer *AskHumanServer, host string, po
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
+
+	// Shutdown SSE server first
+	if err := sseServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("SSE server shutdown error: %v", err)
+	}
 
 	return httpServer.Shutdown(shutdownCtx)
 }
