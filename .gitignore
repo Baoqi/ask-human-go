@@ -62,4 +62,7 @@ coverage.html
 
 # Performance profiles
 *.prof
-*.pprof 
+*.pprof
+
+# Ask Human specific files
+ask-human-go 
