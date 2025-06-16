@@ -127,22 +127,6 @@ func (s *AskHumanServer) registerTools() {
 	)
 
 	s.mcpServer.AddTool(askHumanTool, s.handleAskHuman)
-
-	// List pending questions tool
-	listPendingTool := mcp.NewTool(
-		"list_pending_questions",
-		mcp.WithDescription("See what questions are still waiting for answers"),
-	)
-
-	s.mcpServer.AddTool(listPendingTool, s.handleListPending)
-
-	// Get Q&A stats tool
-	statsTool := mcp.NewTool(
-		"get_qa_stats",
-		mcp.WithDescription("Get some stats about how many questions have been asked"),
-	)
-
-	s.mcpServer.AddTool(statsTool, s.handleGetStats)
 }
 
 // handleAskHuman handles the ask_human tool call
@@ -160,26 +144,6 @@ func (s *AskHumanServer) handleAskHuman(ctx context.Context, req mcp.CallToolReq
 	}
 
 	return mcp.NewToolResultText(answer), nil
-}
-
-// handleListPending handles the list_pending_questions tool call
-func (s *AskHumanServer) handleListPending(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	result, err := s.listPendingQuestions()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to list pending questions: %v", err)), nil
-	}
-
-	return mcp.NewToolResultText(result), nil
-}
-
-// handleGetStats handles the get_qa_stats tool call
-func (s *AskHumanServer) handleGetStats(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	result, err := s.getStats()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to get stats: %v", err)), nil
-	}
-
-	return mcp.NewToolResultText(result), nil
 }
 
 // askQuestion handles the core question asking logic

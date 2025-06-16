@@ -75,11 +75,11 @@ Available flags:
 - `--max-question-length <NUM>`: Maximum question length (default: 10240)
 - `--max-context-length <NUM>`: Maximum context length (default: 51200)
 
-## MCP Tools
+## MCP Tool
 
-The server provides three MCP tools:
+The server provides one MCP tool:
 
-### 1. ask_human
+### ask_human
 Ask a human a question and wait for their response.
 
 **Parameters:**
@@ -96,34 +96,6 @@ Ask a human a question and wait for their response.
       "question": "What is the preferred coding style for this project?",
       "context": "I'm about to refactor the authentication module"
     }
-  }
-}
-```
-
-### 2. list_pending_questions
-List all currently pending questions.
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "list_pending_questions",
-    "arguments": {}
-  }
-}
-```
-
-### 3. get_qa_stats
-Get statistics about questions and answers.
-
-**Example:**
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "get_qa_stats",
-    "arguments": {}
   }
 }
 ```
