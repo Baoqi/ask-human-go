@@ -20,6 +20,8 @@ func main() {
 	var (
 		helpFlag       = flag.Bool("help", false, "Show help message")
 		httpMode       = flag.Bool("http", false, "Run in HTTP mode instead of stdio")
+		zenityMode     = flag.Bool("zenity", true, "Use zenity GUI dialogs instead of file-based interaction")
+		noZenityMode   = flag.Bool("no-zenity", false, "Disable zenity GUI dialogs and use file-based interaction")
 		host           = flag.String("host", "localhost", "HTTP server host")
 		port           = flag.Int("port", 3000, "HTTP server port")
 		timeoutFlag    = flag.Int("timeout", 1800, "Question timeout in seconds")
@@ -41,6 +43,7 @@ func main() {
 	// Create configuration
 	config := DefaultConfig()
 	config.HTTPMode = *httpMode
+	config.ZenityMode = *zenityMode && !*noZenityMode // Disable zenity if no-zenity flag is set
 	config.Host = *host
 	config.Port = *port
 	config.Timeout = time.Duration(*timeoutFlag) * time.Second
@@ -74,7 +77,12 @@ func main() {
 	}()
 
 	log.Printf("Ask-Human MCP Server starting...")
-	log.Printf("Ask file: %s", config.AskFile)
+	if config.ZenityMode {
+		log.Printf("Mode: Zenity GUI dialogs")
+	} else {
+		log.Printf("Mode: File-based interaction")
+		log.Printf("Ask file: %s", config.AskFile)
+	}
 	log.Printf("Timeout: %v", config.Timeout)
 	log.Printf("Max pending questions: %d", config.MaxPendingQuestions)
 
@@ -171,24 +179,32 @@ USAGE:
 OPTIONS:
     --help                      Show this help message
     --http                      Run in HTTP mode instead of stdio
+    --zenity                    Use zenity GUI dialogs (default: true)
+    --no-zenity                 Disable zenity GUI and use file-based interaction
     --host <HOST>               HTTP server host (default: localhost)
     --port <PORT>               HTTP server port (default: 3000)
     --timeout <SECONDS>         Question timeout in seconds (default: 1800)
-    --file <PATH>               Path to ask file (default: platform-specific)
+    --file <PATH>               Path to ask file (default: platform-specific, ignored in zenity mode)
     --max-pending <NUM>         Maximum pending questions (default: 100)
     --max-question-length <NUM> Maximum question length (default: 10240)
     --max-context-length <NUM>  Maximum context length (default: 51200)
-    --max-file-size <NUM>       Maximum file size (default: 104857600)
-    --rotation-size <NUM>       File rotation size (default: 52428800)
+    --max-file-size <NUM>       Maximum file size (default: 104857600, ignored in zenity mode)
+    --rotation-size <NUM>       File rotation size (default: 52428800, ignored in zenity mode)
 
 EXAMPLES:
-    # Run in stdio mode (for local MCP clients like Cursor)
+    # Run in stdio mode with file-based interaction (for local MCP clients like Cursor)
     ask-human-go
+
+    # Run with zenity GUI dialogs (no file needed)
+    ask-human-go --zenity
 
     # Run in HTTP mode
     ask-human-go --http --port 3000
 
-    # Custom timeout and file location
+    # Run with zenity GUI and custom timeout
+    ask-human-go --zenity --timeout 900
+
+    # Traditional file mode with custom timeout and file location
     ask-human-go --timeout 900 --file /path/to/questions.md
 
 MCP CLIENT CONFIGURATION:
@@ -212,10 +228,18 @@ For HTTP mode:
     }
 
 WORKFLOW:
+
+File mode:
 1. AI agent calls ask_human(question, context)
 2. Question appears in the markdown file with "Answer: PENDING"
 3. Human edits the file and replaces "PENDING" with the answer
 4. AI agent receives the answer and continues
+
+Zenity mode (--zenity):
+1. AI agent calls ask_human(question, context)
+2. A GUI dialog box appears asking the question
+3. Human types the answer directly into the dialog
+4. AI agent receives the answer immediately
 
 PROJECT: https://github.com/masonyarbrough/ask-human-go
 `)

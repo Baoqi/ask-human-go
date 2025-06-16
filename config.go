@@ -21,6 +21,7 @@ type Config struct {
 	Host                string        // HTTP server host
 	Port                int           // HTTP server port
 	HTTPMode            bool          // Whether to run in HTTP mode
+	ZenityMode          bool          // Whether to use zenity GUI for interactions
 }
 
 // DefaultConfig returns a default configuration
@@ -37,6 +38,7 @@ func DefaultConfig() *Config {
 		Host:                "localhost",
 		Port:                3000,
 		HTTPMode:            false,
+		ZenityMode:          true, // Default to zenity GUI mode for better user experience
 	}
 }
 

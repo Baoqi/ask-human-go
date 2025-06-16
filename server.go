@@ -13,11 +13,12 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// AskHumanServer handles AI questions through markdown file interactions
+// AskHumanServer handles AI questions through markdown file interactions or zenity GUI
 type AskHumanServer struct {
 	config            *Config
 	mcpServer         *server.MCPServer
 	watcher           *FileWatcher
+	zenityHandler     *ZenityHandler
 	pendingQuestions  map[string]time.Time
 	answeredQuestions map[string]bool
 	mutex             sync.RWMutex
@@ -42,27 +43,39 @@ func NewAskHumanServer(config *Config) (*AskHumanServer, error) {
 		server.WithToolCapabilities(true),
 	)
 
-	// Create file watcher
-	watcher, err := NewFileWatcher(config.AskFile)
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("failed to create file watcher: %w", err)
+	var watcher *FileWatcher
+	var zenityHandler *ZenityHandler
+
+	if config.ZenityMode {
+		// Initialize zenity handler
+		zenityHandler = NewZenityHandler(config.Timeout)
+	} else {
+		// Create file watcher for traditional mode
+		var err error
+		watcher, err = NewFileWatcher(config.AskFile)
+		if err != nil {
+			cancel()
+			return nil, fmt.Errorf("failed to create file watcher: %w", err)
+		}
 	}
 
 	askServer := &AskHumanServer{
 		config:            config,
 		mcpServer:         mcpServer,
 		watcher:           watcher,
+		zenityHandler:     zenityHandler,
 		pendingQuestions:  make(map[string]time.Time),
 		answeredQuestions: make(map[string]bool),
 		shutdownCtx:       ctx,
 		shutdownCancel:    cancel,
 	}
 
-	// Initialize the ask file
-	if err := askServer.initFile(); err != nil {
-		askServer.Close()
-		return nil, fmt.Errorf("failed to initialize ask file: %w", err)
+	// Initialize the ask file (only for non-zenity mode)
+	if !config.ZenityMode {
+		if err := askServer.initFile(); err != nil {
+			askServer.Close()
+			return nil, fmt.Errorf("failed to initialize ask file: %w", err)
+		}
 	}
 
 	// Register MCP tools
@@ -192,6 +205,46 @@ func (s *AskHumanServer) askQuestion(question, context string) (string, error) {
 			ErrTooManyQuestions, pendingCount, s.config.MaxPendingQuestions)
 	}
 
+	// Generate question ID and timestamp
+	questionID := fmt.Sprintf("Q%s", uuid.New().String()[:8])
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+
+	// Clean up any timed out questions
+	s.cleanupTimeouts()
+
+	// Use different approaches based on mode
+	if s.config.ZenityMode {
+		return s.askQuestionZenity(questionID, question, context)
+	} else {
+		return s.askQuestionFile(questionID, question, context, timestamp)
+	}
+}
+
+// askQuestionZenity uses zenity GUI to ask questions
+func (s *AskHumanServer) askQuestionZenity(questionID, question, context string) (string, error) {
+	// Track this question
+	s.mutex.Lock()
+	s.pendingQuestions[questionID] = time.Now()
+	s.totalQuestions++
+	s.mutex.Unlock()
+
+	// Use zenity to get the answer directly
+	answer, err := s.zenityHandler.AskQuestion(questionID, question, context)
+
+	// Remove from pending and record result
+	s.removePendingQuestion(questionID)
+
+	if err != nil {
+		return "", err
+	}
+
+	// Record successful answer
+	s.recordAnswer(questionID)
+	return answer, nil
+}
+
+// askQuestionFile uses file-based interaction to ask questions
+func (s *AskHumanServer) askQuestionFile(questionID, question, context, timestamp string) (string, error) {
 	// Check file size
 	if info, err := os.Stat(s.config.AskFile); err == nil {
 		if info.Size() > s.config.MaxFileSize {
@@ -199,13 +252,6 @@ func (s *AskHumanServer) askQuestion(question, context string) (string, error) {
 				ErrFileTooLarge, info.Size(), s.config.MaxFileSize)
 		}
 	}
-
-	// Generate question ID and timestamp
-	questionID := fmt.Sprintf("Q%s", uuid.New().String()[:8])
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-
-	// Clean up any timed out questions
-	s.cleanupTimeouts()
 
 	// Register for file change notifications
 	notificationChan := s.watcher.RegisterCallback(questionID)
@@ -321,6 +367,7 @@ func (s *AskHumanServer) Close() error {
 	if s.watcher != nil {
 		return s.watcher.Close()
 	}
+	// zenityHandler doesn't need explicit cleanup
 	return nil
 }
 
