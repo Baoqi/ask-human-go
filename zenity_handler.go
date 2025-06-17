@@ -27,12 +27,7 @@ func (z *ZenityHandler) AskQuestion(questionID, question, contextInfo string) (s
 	// Build the dialog text
 	var dialogText strings.Builder
 
-	dialogText.WriteString(fmt.Sprintf("Question ID: %s\n\n", questionID))
-	dialogText.WriteString(fmt.Sprintf("Question: %s\n\n", question))
-
-	if contextInfo != "" {
-		dialogText.WriteString(fmt.Sprintf("Context: %s\n\n", contextInfo))
-	}
+	dialogText.WriteString(fmt.Sprintf("%s\n", question))
 
 	dialogText.WriteString("Please provide your answer:")
 
@@ -47,9 +42,12 @@ func (z *ZenityHandler) AskQuestion(questionID, question, contextInfo string) (s
 		log.Printf("   Context: %s", truncateString(contextInfo, 100))
 	}
 
+	// reduce  multiple newlines to one newline
+	content := strings.ReplaceAll(dialogText.String(), "\n\n", "\n")
+
 	// Show the text entry dialog
-	answer, err := zenity.Entry(dialogText.String(),
-		zenity.Title("Ask-Human MCP Server - Question"),
+	answer, err := zenity.Entry(content,
+		zenity.Title("Ask-Human MCP Server - Question ID: "+questionID),
 		zenity.Width(600),
 		zenity.Height(400),
 		zenity.Context(ctx),
