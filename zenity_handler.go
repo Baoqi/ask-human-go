@@ -28,6 +28,9 @@ func (z *ZenityHandler) AskQuestion(questionID, question, contextInfo string) (s
 	var dialogText strings.Builder
 
 	dialogText.WriteString(fmt.Sprintf("%s\n", question))
+	if contextInfo != "" {
+		dialogText.WriteString(fmt.Sprintf("Context: %s\n", contextInfo))
+	}
 
 	dialogText.WriteString("Please provide your answer:")
 
