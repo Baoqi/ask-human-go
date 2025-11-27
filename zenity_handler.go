@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -23,7 +22,7 @@ func NewZenityHandler(timeout time.Duration) *ZenityHandler {
 }
 
 // AskQuestion shows a zenity dialog to ask the user a question and returns the answer
-func (z *ZenityHandler) AskQuestion(questionID, question, contextInfo string) (string, error) {
+func (z *ZenityHandler) AskQuestion(parentCtx context.Context, questionID, question, contextInfo string) (string, error) {
 	// Build the dialog text
 	var dialogText strings.Builder
 
@@ -31,21 +30,13 @@ func (z *ZenityHandler) AskQuestion(questionID, question, contextInfo string) (s
 	if contextInfo != "" {
 		dialogText.WriteString(fmt.Sprintf("Context: %s\n", contextInfo))
 	}
-
 	dialogText.WriteString("Please provide your answer:")
 
-	// Create a context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), z.timeout)
+	// Create a context with timeout, derived from parent context
+	ctx, cancel := context.WithTimeout(parentCtx, z.timeout)
 	defer cancel()
 
-	// Log the question
-	log.Printf("🚨 Showing zenity dialog for question: %s", questionID)
-	log.Printf("   Question: %s", truncateString(question, 100))
-	if contextInfo != "" {
-		log.Printf("   Context: %s", truncateString(contextInfo, 100))
-	}
-
-	// reduce  multiple newlines to one newline
+	// Reduce multiple newlines to one newline
 	content := strings.ReplaceAll(dialogText.String(), "\n\n", "\n")
 
 	// Show the text entry dialog
@@ -58,60 +49,19 @@ func (z *ZenityHandler) AskQuestion(questionID, question, contextInfo string) (s
 
 	if err != nil {
 		if err == zenity.ErrCanceled {
-			log.Printf("❌ User canceled dialog for question: %s", questionID)
 			return "", fmt.Errorf("user canceled the question dialog")
 		}
-		if err == context.DeadlineExceeded {
-			log.Printf("⏰ Dialog timeout for question: %s", questionID)
-			return "", fmt.Errorf("dialog timeout after %v", z.timeout)
+		if err == context.DeadlineExceeded || err == context.Canceled {
+			return "", fmt.Errorf("dialog timeout or canceled")
 		}
-		log.Printf("❌ Zenity error for question %s: %v", questionID, err)
 		return "", fmt.Errorf("zenity dialog error: %v", err)
 	}
 
 	// Validate answer
 	answer = strings.TrimSpace(answer)
 	if answer == "" {
-		log.Printf("❌ Empty answer provided for question: %s", questionID)
 		return "", fmt.Errorf("empty answer provided")
 	}
 
-	log.Printf("✅ Got answer for question %s: %s", questionID, truncateString(answer, 100))
 	return answer, nil
-}
-
-// ShowNotification shows a notification using zenity
-func (z *ZenityHandler) ShowNotification(title, message string) error {
-	return zenity.Notify(message,
-		zenity.Title(title),
-		zenity.InfoIcon,
-	)
-}
-
-// ShowInfo shows an info dialog
-func (z *ZenityHandler) ShowInfo(title, message string) error {
-	return zenity.Info(message,
-		zenity.Title(title),
-	)
-}
-
-// ShowError shows an error dialog
-func (z *ZenityHandler) ShowError(title, message string) error {
-	return zenity.Error(message,
-		zenity.Title(title),
-	)
-}
-
-// ShowQuestion shows a yes/no question dialog
-func (z *ZenityHandler) ShowQuestion(title, message string) (bool, error) {
-	err := zenity.Question(message,
-		zenity.Title(title),
-		zenity.QuestionIcon,
-	)
-
-	if err == zenity.ErrCanceled {
-		return false, nil
-	}
-
-	return err == nil, err
 }
