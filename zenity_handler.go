@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -25,6 +26,11 @@ func NewZenityHandler(timeout time.Duration) *ZenityHandler {
 func (z *ZenityHandler) AskQuestion(parentCtx context.Context, questionID, question, contextInfo string) (string, error) {
 	// Build the dialog text
 	var dialogText strings.Builder
+
+	// Show workspace folder paths if available to help identify the source project
+	if workspacePaths := os.Getenv("WORKSPACE_FOLDER_PATHS"); workspacePaths != "" {
+		dialogText.WriteString(fmt.Sprintf("Project: %s\n", workspacePaths))
+	}
 
 	dialogText.WriteString(fmt.Sprintf("%s\n", question))
 	if contextInfo != "" {
